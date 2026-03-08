@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- Tailwind CSS (デザイン用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React と Babel (アプリ動作用) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+      @keyframes bounce-slow {
+        0%, 100% { transform: translateY(0) translateX(-50%); }
+        50% { transform: translateY(-10px) translateX(-50%); }
+      }
+      .animate-bounce-slow {
+        animation: bounce-slow 2.5s infinite ease-in-out;
+      }
+    </style>
+  </head>
+  <body class="bg-pink-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+
+      // --- SVGアイコン ---
+      const Icons = {
+        Play: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>,
+        Star: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+        CheckCircle2: () => <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-green-500 mb-2 animate-bounce"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>,
+        XCircle: () => <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 mb-2"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>,
+        ArrowRight: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>,
+        RotateCcw: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>,
+        Trophy: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>
+      };
+
+      // --- 問題データ ---
+      const questionsData = {
+        初級: [
+          { q: "1/5 + 2/5", options: ["3/5", "3/10", "2/25", "1/5"], ans: "3/5", exp: "足し算・引き算の基本！分母が同じ時は、そのまま分子同士を足すよ。分母同士を足して「3/10」にしないように注意してね！分母はそのままだよ🐰" },
+          { q: "1/2 × 1/3", options: ["1/6", "2/5", "3/2", "1/5"], ans: "1/6", exp: "掛け算は『通分』しなくてOK！分母同士、分子同士をそのまま掛け算しよう。1×1=1、2×3=6で答えは1/6になるね。足し算と間違えないようにね！🥕" },
+          { q: "5/7 - 2/7", options: ["3/7", "3/0", "10/49", "7/7"], ans: "3/7", exp: "引き算も足し算と同じだよ！分母が同じなら、分子同士を引き算するだけ。5-2=3だから、分子は3。分母はそのまま7にしてね。通分はもうされている状態だよ✨" },
+          { q: "1/3 ÷ 1/2", options: ["2/3", "1/6", "3/2", "2/6"], ans: "2/3", exp: "割り算は『逆数』を掛けるのがポイント！割る数（後ろの分数）の分母と分子をひっくり返して、掛け算と同じように計算しよう。1/3 × 2/1 になるよ！🐰" },
+          { q: "1/2 + 1/4", options: ["3/4", "2/6", "1/8", "1/6"], ans: "3/4", exp: "分母が違う足し算が出た！ここは『通分』の出番だよ。分母を同じ数にそろえよう。1/2の分母と分子に2を掛けて、2/4にすれば計算できるね。2/4 + 1/4 だよ！🥕" },
+          { q: "2/3 × 3/4", options: ["1/2", "5/7", "6/12", "8/9"], ans: "1/2", exp: "掛け算は通分不要！そのまま分母同士、分子同士を掛けると6/12になるね。最後に約分するのを忘れないで！2と4、3と3で途中で約分すると計算がもっと楽になるよ✨" },
+          { q: "1/2 - 1/3", options: ["1/6", "1/1", "0/1", "2/5"], ans: "1/6", exp: "分母が違う引き算だから『通分』が必要だよ。2と3の最小公倍数は6だね。3/6 - 2/6 に直してから分子を引こう。分母同士を引いて「1/(-1)」にしないように注意！🐰" },
+          { q: "3/4 ÷ 3/8", options: ["2", "9/32", "1/2", "2/4"], ans: "2", exp: "割り算は後ろの分数をひっくり返して掛け算にするよ！3/4 × 8/3 になるね。斜め同士の3と3、4と8で約分できるから、答えはスッキリ2になるよ！🥕" },
+          { q: "1/3 + 1/4", options: ["7/12", "2/7", "1/12", "4/7"], ans: "7/12", exp: "足し算だから『通分』が必要だね。3と4の最小公倍数12でそろえよう。4/12 + 3/12 になるよ。分母同士、分子同士を足して「2/7」にしてしまうのはよくある間違いだから気をつけて！✨" },
+          { q: "4/5 × 1/2", options: ["2/5", "4/10", "5/7", "8/5"], ans: "2/5", exp: "掛け算は通分しないでそのまま掛けるよ！4/10になるけど、約分できるね。途中で4と2を約分すると、すぐに2/5が求められるよ。掛け算と足し算のルールの違い、少しずつ分かってきたかな？🐰" }
+        ],
+        中級: [
+          { q: "2/5 + 1/3", options: ["11/15", "3/8", "6/15", "3/15"], ans: "11/15", exp: "中級スタート！足し算だから『通分』するよ。5と3の最小公倍数は15だね。6/15 + 5/15 で計算しよう。つい分子と分母をそれぞれ足して「3/8」にしちゃダメだよ！🐰" },
+          { q: "5/6 ÷ 2/3", options: ["5/4", "10/18", "5/9", "4/5"], ans: "5/4", exp: "割り算は『逆数』にして掛けるよ！5/6 × 3/2 になるね。ここで通分しようとしてしまう人が多いけど、掛け算・割り算に通分は要らないよ。そのまま計算して約分しよう！🥕" },
+          { q: "3/4 - 1/6", options: ["7/12", "2/-2", "2/2", "5/12"], ans: "7/12", exp: "引き算は『通分』が必要！4と6の最小公倍数は12だよ。9/12 - 2/12 だね。分母同士を引いてしまうような計算は間違いのサインだよ！しっかり通分しよう✨" },
+          { q: "4/9 × 3/8", options: ["1/6", "12/72", "7/17", "32/27"], ans: "1/6", exp: "掛け算はそのまま掛けるだけ！だけど、そのまま掛けると12/72になって約分が大変。斜めの「4と8」「3と9」で先に約分すると、1/3 × 1/2 になってすごく簡単になるよ！🐰" },
+          { q: "5/8 + 1/6", options: ["19/24", "6/14", "3/7", "23/24"], ans: "19/24", exp: "足し算だから『通分』だよ。8と6の最小公倍数は24だね！15/24 + 4/24 になるよ。「6/14」は分母同士・分子同士を足した間違いだから選ばないようにね！🥕" },
+          { q: "3/10 ÷ 4/5", options: ["3/8", "12/50", "6/25", "8/3"], ans: "3/8", exp: "割り算は後ろをひっくり返して掛け算！3/10 × 5/4 だね。5と10で約分できるよ。通分して割り算しようとするのもNGだし、そのまま分母・分子同士を割るのもNGだよ！✨" },
+          { q: "4/5 - 2/3", options: ["2/15", "2/2", "1/1", "22/15"], ans: "2/15", exp: "引き算は『通分』！5と3の最小公倍数15でそろえよう。12/15 - 10/15 になるよ。分母が違う時は必ず通分！これさえ覚えておけば足し算・引き算はバッチリだね！🐰" },
+          { q: "7/12 × 4/7", options: ["1/3", "28/84", "11/19", "3/1"], ans: "1/3", exp: "掛け算は通分しちゃダメだよ！そのまま掛ける前に約分しよう。7と7は1になるし、4と12も約分できるね。1/3 × 1/1 になるから、答えはあっという間に1/3だよ！🥕" },
+          { q: "8/9 - 1/3", options: ["5/9", "7/6", "7/9", "5/6"], ans: "5/9", exp: "引き算は『通分』！9と3だから、分母は9にそろえればいいね。8/9 - 3/9 になるよ。右側の分数だけ分母を3倍、分子も3倍するんだ。忘れずにできたかな？✨" },
+          { q: "5/6 ÷ 5/12", options: ["2", "25/72", "1/2", "2/5"], ans: "2", exp: "割り算は『逆数』にして掛ける！5/6 × 12/5 だね。斜めで約分すると、1/1 × 2/1 になるから答えは「2/1（または2）」だよ。中級クリアおめでとう！よくがんばったね！🐰" }
+        ],
+        上級: [
+          { q: "1/2 + 1/3 - 1/4", options: ["7/12", "1/5", "1/24", "5/12"], ans: "7/12", exp: "上級スタート！足し算と引き算が混ざっていても基本は同じ。『全部まとめて通分』するよ。2と3と4の最小公倍数は12だね。6/12 + 4/12 - 3/12 を計算しよう！🐰" },
+          { q: "3/4 × 8/9", options: ["2/3", "24/36", "11/13", "27/32"], ans: "2/3", exp: "掛け算は通分不要！分母同士・分子同士を掛けるだけ。先に約分するクセをつけよう。3と9で1/3、4と8で2/1になるから、1/1 × 2/3 で答えは2/3だね！🥕" },
+          { q: "5/6 - 3/8", options: ["11/24", "2/-2", "1/1", "11/48"], ans: "11/24", exp: "引き算は『通分』！6と8の最小公倍数は24だよ。20/24 - 9/24 になるね。分母同士を引いてしまうミスにはもう引っかからないよね？その調子！✨" },
+          { q: "2/3 ÷ 4/9", options: ["3/2", "8/27", "2/3", "4/6"], ans: "3/2", exp: "割り算は『逆数』を掛ける！2/3 × 9/4 だね。掛け算に直したら、あとは通分せず斜めで約分するだけ！分母のまま割ったり掛けたりしないように注意しようね🐰" },
+          { q: "7/10 + 4/15", options: ["29/30", "11/25", "11/30", "21/30"], ans: "29/30", exp: "足し算は『通分』！10と15の最小公倍数30でそろえよう。21/30 + 8/30 になるよ。分母が大きくなっても、ルールは今までと同じ。自信を持って計算しよう！🥕" },
+          { q: "9/14 × 7/12", options: ["3/8", "63/168", "16/26", "8/3"], ans: "3/8", exp: "掛け算は通分不要！そのまま掛ける前に、しっかり約分しよう。9と12は3で割れて、7と14は7で割れるね。3/2 × 1/4 になるから、答えは3/8だよ✨" },
+          { q: "11/12 - 5/8", options: ["7/24", "6/4", "6/24", "13/24"], ans: "7/24", exp: "引き算は『通分』！12と8の最小公倍数は24。22/24 - 15/24 だね。通分する数を間違えないように、最小公倍数をしっかり見つけるのがコツだよ！🐰" },
+          { q: "5/8 ÷ 15/16", options: ["2/3", "75/128", "3/2", "1/2"], ans: "2/3", exp: "割り算は『逆数』を掛ける！5/8 × 16/15 になるよ。斜めで約分すると、1/1 × 2/3 になるね。掛け算と割り算は通分しない！この違い、もう完璧だね！🥕" },
+          { q: "1/6 + 3/4 - 1/3", options: ["7/12", "3/7", "5/12", "1/12"], ans: "7/12", exp: "足し算と引き算のミックス！これも『全部まとめて通分』だよ。6と4と3の最小公倍数は12。2/12 + 9/12 - 4/12 で計算できるよ。順番に計算してもOK！✨" },
+          { q: "1/2 × 2/3 ÷ 3/4", options: ["4/9", "1/4", "3/4", "9/4"], ans: "4/9", exp: "掛け算と割り算のミックス！割り算の部分だけ『逆数』にして掛け算に直そう。1/2 × 2/3 × 4/3 になるよ。あとは全部まとめて約分して掛けるだけ！全問クリア目前だよ！🐰" }
+        ]
+      };
+
+      const levels = ['初級', '中級', '上級'];
+
+      // --- 分数表示用コンポーネント ---
+      const Fraction = ({ num, den }) => (
+        <span className="inline-flex flex-col items-center justify-center align-middle mx-1 text-inherit">
+          <span className="border-b-[3px] border-current pb-0.5 px-1 leading-none text-center min-w-[1.2em]">{num}</span>
+          <span className="pt-0.5 px-1 leading-none text-center min-w-[1.2em]">{den}</span>
+        </span>
+      );
+
+      const renderExpression = (str) => {
+        const parts = str.split(' ');
+        return parts.map((part, i) => {
+          if (part.includes('/')) {
+            const [num, den] = part.split('/');
+            return <Fraction key={i} num={num} den={den} />;
+          } else {
+            return <span key={i} className="mx-2 font-bold">{part}</span>;
+          }
+        });
+      };
+
+      // --- メインアプリ ---
+      function App() {
+        const [gameState, setGameState] = useState('start');
+        const [currentLevel, setCurrentLevel] = useState('初級');
+        const [questionIndex, setQuestionIndex] = useState(0);
+        const [score, setScore] = useState(0);
+        const [isCorrect, setIsCorrect] = useState(false);
+        const [shuffledOptions, setShuffledOptions] = useState([]);
+
+        const currentQ = questionsData[currentLevel][questionIndex];
+
+        useEffect(() => {
+          if (gameState === 'playing' && currentQ) {
+            setShuffledOptions([...currentQ.options].sort(() => Math.random() - 0.5));
+          }
+        }, [gameState, questionIndex, currentLevel]);
+
+        const handleStart = () => {
+          setCurrentLevel('初級');
+          setQuestionIndex(0);
+          setScore(0);
+          setGameState('playing');
+        };
+
+        const handleAnswer = (option) => {
+          const correct = option === currentQ.ans;
+          setIsCorrect(correct);
+          if (correct) setScore(prev => prev + 1);
+          setGameState('explanation');
+        };
+
+        const handleNextQuestion = () => {
+          if (questionIndex < 9) {
+            setQuestionIndex(prev => prev + 1);
+            setGameState('playing');
+          } else {
+            setGameState('level_result');
+          }
+        };
+
+        const handleNextLevel = () => {
+          const levelIdx = levels.indexOf(currentLevel);
+          if (levelIdx < levels.length - 1) {
+            setCurrentLevel(levels[levelIdx + 1]);
+            setQuestionIndex(0);
+            setScore(0);
+            setGameState('playing');
+          } else {
+            setGameState('all_clear');
+          }
+        };
+
+        const handleRetry = () => {
+          setQuestionIndex(0);
+          setScore(0);
+          setGameState('playing');
+        };
+
+        return (
+          <div className="min-h-screen flex items-center justify-center p-4 font-sans text-slate-800">
+            <div className="max-w-md w-full bg-white rounded-[2rem] shadow-2xl overflow-hidden border-4 border-pink-100 relative min-h-[600px] flex flex-col">
+              
+              {/* ヘッダー */}
+              {(gameState === 'playing' || gameState === 'explanation') && (
+                <div className="bg-pink-100 p-4 flex justify-between items-center border-b-2 border-pink-200">
+                  <div className="font-bold text-pink-600 bg-white px-4 py-1 rounded-full shadow-sm flex items-center gap-2">
+                    <Icons.Star />
+                    {currentLevel}
+                  </div>
+                  <div className="font-bold text-slate-600">
+                    {questionIndex + 1} / 10 問
+                  </div>
+                </div>
+              )}
+
+              <div className="p-6 flex-grow flex flex-col justify-center">
+                
+                {/* スタート画面 */}
+                {gameState === 'start' && (
+                  <div className="text-center">
+                    <div className="inline-block bg-pink-100 text-pink-600 font-bold px-4 py-1 rounded-full mb-4">
+                      中学生向け
+                    </div>
+                    <h1 className="text-4xl font-extrabold text-slate-800 mb-2 leading-tight">
+                      分数マスター！<br/>
+                      <span className="text-pink-500">うさぎ先生</span>と特訓
+                    </h1>
+                    <div className="text-9xl my-8 relative">
+                      <span className="inline-block" style={{ animation: 'bounce-slow 2s infinite ease-in-out' }}>🐰</span>
+                      <span className="absolute top-0 right-10 text-4xl animate-pulse">✨</span>
+                    </div>
+                    <p className="text-slate-600 mb-10 font-bold leading-relaxed">
+                      通分するの？ 逆数にするの？<br/>
+                      まぎらわしい分数の計算を<br/>
+                      うさぎ先生と一緒にマスターしよう！
+                    </p>
+                    <button onClick={handleStart} className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-full text-2xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                      <Icons.Play /> はじめる！
+                    </button>
+                  </div>
+                )}
+
+                {/* プレイ画面 */}
+                {gameState === 'playing' && (
+                  <div className="flex flex-col h-full justify-between">
+                    <div className="text-center mb-8 mt-4">
+                      <p className="text-gray-500 font-bold mb-4">正しい答えを選んでね！</p>
+                      <div className="flex flex-wrap items-center justify-center text-5xl font-bold text-slate-800 bg-slate-50 py-10 rounded-3xl border-2 border-slate-100">
+                        {renderExpression(currentQ.q)} <span className="mx-2">=</span> <span className="text-pink-400">?</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mt-auto">
+                      {shuffledOptions.map((opt, i) => (
+                        <button key={i} onClick={() => handleAnswer(opt)} className="p-6 bg-white hover:bg-pink-50 text-slate-700 rounded-3xl text-3xl font-bold border-[3px] border-slate-200 hover:border-pink-300 shadow-sm transition-all active:scale-95 flex items-center justify-center">
+                          {renderExpression(opt)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 解説画面 */}
+                {gameState === 'explanation' && (
+                  <div className="text-center flex flex-col h-full">
+                    <div className="mb-6 flex flex-col items-center">
+                      {isCorrect ? (
+                        <React.Fragment><Icons.CheckCircle2 /><h2 className="text-3xl font-bold text-green-500">大正解！</h2></React.Fragment>
+                      ) : (
+                        <React.Fragment><Icons.XCircle /><h2 className="text-3xl font-bold text-red-500">ざんねん…！</h2></React.Fragment>
+                      )}
+                    </div>
+                    <div className="text-2xl font-bold mb-6 flex items-center justify-center gap-2">
+                      正解は <span className="text-pink-600 bg-pink-50 px-4 py-2 rounded-2xl border-2 border-pink-100 flex items-center">{renderExpression(currentQ.ans)}</span>
+                    </div>
+                    <div className="bg-pink-50 p-6 rounded-3xl relative mt-8 flex-grow">
+                      <div className="absolute -top-12 left-1/2 animate-bounce-slow text-6xl">🐰</div>
+                      <div className="pt-6">
+                        <p className="text-lg text-slate-700 leading-relaxed font-bold text-left">{currentQ.exp}</p>
+                      </div>
+                    </div>
+                    <button onClick={handleNextQuestion} className={`w-full py-4 mt-6 text-white rounded-full text-xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2 ${questionIndex < 9 ? 'bg-pink-500 hover:bg-pink-600' : 'bg-yellow-500 hover:bg-yellow-600'}`}>
+                      {questionIndex < 9 ? <React.Fragment><span className="mr-1">次の問題へ</span> <Icons.ArrowRight /></React.Fragment> : <React.Fragment><span className="mr-1">結果を見る！</span> <Icons.Trophy /></React.Fragment>}
+                    </button>
+                  </div>
+                )}
+
+                {/* レベル結果画面 */}
+                {gameState === 'level_result' && (
+                  <div className="text-center flex flex-col items-center justify-center h-full">
+                    <h2 className="text-3xl font-bold text-slate-800 mb-2">{currentLevel} の結果</h2>
+                    <div className="text-6xl font-extrabold my-6">
+                      <span className={score >= 8 ? "text-pink-500" : "text-blue-500"}>{score}</span> 
+                      <span className="text-3xl text-slate-400"> / 10</span>
+                    </div>
+                    {score >= 8 ? (
+                      <React.Fragment>
+                        <div className="text-8xl mb-6" style={{ animation: 'bounce 1s infinite' }}>🐰✨</div>
+                        <div className="bg-green-50 border-2 border-green-200 p-6 rounded-3xl relative mb-8 w-full">
+                          <div className="absolute w-4 h-4 bg-green-50 border-t-2 border-l-2 border-green-200 rotate-45 -top-[9px] left-1/2 -translate-x-1/2"></div>
+                          <p className="text-xl font-bold text-green-800 leading-relaxed">すごい！合格だよ！🎉<br/>通分と逆数の違い、<br/>しっかり分かってるね！</p>
+                        </div>
+                        <button onClick={handleNextLevel} className="w-full py-4 bg-pink-500 hover:bg-pink-600 text-white rounded-full text-xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                          <span className="mr-1">{currentLevel === '上級' ? 'エンディングへ！' : '次の級へ進む！'}</span> <Icons.ArrowRight />
+                        </button>
+                      </React.Fragment>
+                    ) : (
+                      <React.Fragment>
+                        <div className="text-8xl mb-6 opacity-80">🐰💦</div>
+                        <div className="bg-blue-50 border-2 border-blue-200 p-6 rounded-3xl relative mb-8 w-full">
+                          <div className="absolute w-4 h-4 bg-blue-50 border-t-2 border-l-2 border-blue-200 rotate-45 -top-[9px] left-1/2 -translate-x-1/2"></div>
+                          <p className="text-xl font-bold text-blue-800 leading-relaxed">合格まであと少し…！<br/>8問以上の正解を目指して<br/>もう一度チャレンジしよう！</p>
+                        </div>
+                        <button onClick={handleRetry} className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                          <Icons.RotateCcw /> もう一度挑戦する
+                        </button>
+                      </React.Fragment>
+                    )}
+                  </div>
+                )}
+
+                {/* 全クリ画面 */}
+                {gameState === 'all_clear' && (
+                  <div className="text-center flex flex-col items-center justify-center h-full">
+                    <div className="inline-block bg-yellow-100 text-yellow-600 font-bold px-4 py-1 rounded-full mb-4">Congratulations!</div>
+                    <h2 className="text-4xl font-extrabold text-yellow-500 mb-8">全級クリア！！</h2>
+                    <div className="text-9xl mb-8 relative">
+                      <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-6xl drop-shadow-md">👑</span>
+                      <span className="inline-block" style={{ animation: 'bounce 1.5s infinite' }}>🐰</span>
+                    </div>
+                    <div className="bg-yellow-50 p-6 rounded-3xl mb-10 w-full border-2 border-yellow-200">
+                      <p className="text-lg text-yellow-900 font-bold leading-relaxed">
+                        おめでとうございます！🎉<br/><br/>
+                        分数の加減と乗除の計算方法、<br/>もうバッチリだね！<br/>
+                        通分が必要なとき、逆数にするとき、<br/>
+                        しっかり区別できるようになったよ！
+                      </p>
+                    </div>
+                    <button onClick={handleStart} className="w-full py-4 bg-gradient-to-r from-pink-400 to-pink-500 hover:from-pink-500 hover:to-pink-600 text-white rounded-full text-xl font-bold shadow-lg transition-transform active:scale-95 flex items-center justify-center gap-2">
+                      <Icons.RotateCcw /> 最初から遊ぶ
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* プログレスバー */}
+              {gameState === 'playing' && (
+                <div className="h-2 bg-pink-100 w-full">
+                  <div className="h-full bg-pink-400 transition-all duration-300 ease-out" style={{ width: `${(questionIndex / 10) * 100}%` }}></div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      // Reactアプリの描画を開始
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
